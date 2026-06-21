@@ -1,0 +1,22 @@
+{
+  "name": "bankikhata",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BankiKhata MERN credit and debt management system for Nepal-focused small businesses.",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace server\" \"npm run dev --workspace client\"",
+    "build": "npm run build --workspace client",
+    "start": "npm run start --workspace server",
+    "seed": "npm run seed --workspace server"
+  },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "googleapis": "^173.0.0"
+  }
+}
