@@ -4,7 +4,7 @@ const customerSchema = new mongoose.Schema(
   {
     customerId: { type: String, unique: true, index: true },
     fullName: { type: String, required: true, trim: true, index: 'text' },
-    phone: { type: String, required: true, trim: true, index: true },
+    phone: { type: String, trim: true, index: true },
     alternatePhone: { type: String, trim: true },
     address: { type: String, trim: true },
     notes: { type: String, trim: true },

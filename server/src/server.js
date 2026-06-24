@@ -67,6 +67,18 @@ app.use(errorHandler);
 io.on('connection', (socket) => {
   socket.emit('connected', { message: 'BankiKhata realtime connected' });
 });
+// 2. The Keep-Alive Cron Job (Runs every 14 minutes)
+cron.schedule('*/14 * * * *', async () => {
+  try {
+    console.log('Running keep-alive cron job...');
+    const response = await fetch('https://bankikhata.onrender.com/health');
+    if (response.ok) {
+      console.log(`Cron ping successful: Status ${response.status}`);
+    }
+  } catch (error) {
+    console.error('Cron job network error:', error.message);
+  }
+});
 
 const port = process.env.PORT || 5000;
 connectDB()

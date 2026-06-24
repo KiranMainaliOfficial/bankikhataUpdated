@@ -1,37 +1,85 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, MessageSquareText, Phone, Plus, ReceiptText } from 'lucide-react';
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import Modal from '../components/Modal.jsx';
-import Skeleton from '../components/Skeleton.jsx';
-import StatCard from '../components/StatCard.jsx';
-import { usePreference } from '../contexts/PreferenceContext.jsx';
-import { api } from '../lib/api.js';
-import { formatDate, money } from '../lib/format.js';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Banknote,
+  MessageSquareText,
+  Phone,
+  Plus,
+  ReceiptText,
+  Trash2,
+} from "lucide-react"; // Added Trash2 icon
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom"; // Added useNavigate
+import Modal from "../components/Modal.jsx";
+import Skeleton from "../components/Skeleton.jsx";
+import StatCard from "../components/StatCard.jsx";
+import { usePreference } from "../contexts/PreferenceContext.jsx";
+import { api } from "../lib/api.js";
+import { formatDate, money } from "../lib/format.js";
 
-const emptyTx = { type: 'credit', amount: '', productOrReason: '', paymentMethod: 'cash', notes: '' };
+const emptyTx = {
+  type: "credit",
+  amount: "",
+  productOrReason: "",
+  paymentMethod: "cash",
+  notes: "",
+};
 
 export default function CustomerProfile() {
   const { id } = useParams();
+  const navigate = useNavigate(); // Hook for redirection after delete
   const { t } = usePreference();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyTx);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['customer', id],
-    queryFn: async () => (await api.get(`/customers/${id}`)).data
+    queryKey: ["customer", id],
+    queryFn: async () => (await api.get(`/customers/${id}`)).data,
   });
 
   const addTx = useMutation({
-    mutationFn: async () => (await api.post('/transactions', { ...form, customer: id })).data,
+    mutationFn: async () =>
+      (await api.post("/transactions", { ...form, customer: id })).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customer', id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ["customer", id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       setForm(emptyTx);
       setOpen(false);
-    }
+    },
   });
+
+  // New Mutation for deleting a customer
+  const deleteCustomer = useMutation({
+    mutationFn: async () => (await api.delete(`/customers/${id}`)).data,
+    onSuccess: () => {
+      // Invalidate dashboard/lists to ensure deleted data is gone
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      // Redirect back to main dashboard or customer list
+      navigate("/customers");
+    },
+  });
+
+  const handleDelete = () => {
+    const currentBalance = customer?.totals?.balance || 0;
+
+    // 1. Block deletion if the customer still owes money or has advanced credit
+    if (currentBalance !== 0) {
+      window.confirm(
+        `Cannot delete customer. Outstanding balance is ${money(currentBalance)}.`,
+      );
+      // return;
+      deleteCustomer.mutate();
+    }
+
+    // 2. If balance is 0, proceed to confirmation
+    if (
+      window.confirm(
+        "Are you sure you want to delete this customer? This action cannot be undone.",
+      )
+    ) {
+      deleteCustomer.mutate();
+    }
+  };
 
   if (isLoading) return <Skeleton rows={6} />;
   const { customer, transactions } = data;
@@ -43,29 +91,57 @@ export default function CustomerProfile() {
           <div>
             <p className="text-sm text-slate-500">{customer.customerId}</p>
             <h1 className="text-2xl font-bold">{customer.fullName}</h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{customer.address || '-'}</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              {customer.address || "-"}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <a className="btn btn-muted" href={`tel:${customer.phone}`}>
               <Phone size={18} />
-              {t('call')}
+              {t("call")}
             </a>
-            <a className="btn btn-muted" href={`sms:${customer.phone}?body=Namaste, your remaining balance is ${money(customer.totals.balance)}.`}>
+            <a
+              className="btn btn-muted"
+              href={`sms:${customer.phone}?body=Namaste, your remaining balance is ${money(customer.totals.balance)}.`}
+            >
               <MessageSquareText size={18} />
-              {t('reminder')}
+              {t("reminder")}
             </a>
             <button className="btn btn-primary" onClick={() => setOpen(true)}>
               <Plus size={18} />
-              {t('addCredit')}
+              {t("addCredit")}
+            </button>
+            {/* New Delete Button */}
+            <button
+              className="btn btn-danger text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 p-2 rounded-md"
+              onClick={handleDelete}
+              disabled={deleteCustomer.isPending}
+              title="Delete Customer"
+            >
+              <Trash2 size={18} />
             </button>
           </div>
         </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-3">
-        <StatCard icon={ReceiptText} label={t('totalCredit')} value={money(customer.totals.credit)} tone="amber" />
-        <StatCard icon={Banknote} label={t('totalPaid')} value={money(customer.totals.paid)} tone="sky" />
-        <StatCard icon={Banknote} label={t('balance')} value={money(customer.totals.balance)} />
+        <StatCard
+          icon={ReceiptText}
+          label={t("totalCredit")}
+          value={money(customer.totals.credit)}
+          tone="amber"
+        />
+        <StatCard
+          icon={Banknote}
+          label={t("totalPaid")}
+          value={money(customer.totals.paid)}
+          tone="sky"
+        />
+        <StatCard
+          icon={Banknote}
+          label={t("balance")}
+          value={money(customer.totals.balance)}
+        />
       </section>
 
       <section className="panel p-4">
@@ -84,15 +160,24 @@ export default function CustomerProfile() {
             </thead>
             <tbody>
               {transactions.map((tx) => (
-                <tr key={tx._id} className="border-t border-slate-100 dark:border-slate-800">
+                <tr
+                  key={tx._id}
+                  className="border-t border-slate-100 dark:border-slate-800"
+                >
                   <td className="py-3">{formatDate(tx.date)}</td>
-                  <td className={tx.type === 'credit' ? 'font-semibold text-amber-600' : 'font-semibold text-brand-600'}>
+                  <td
+                    className={
+                      tx.type === "credit"
+                        ? "font-semibold text-amber-600"
+                        : "font-semibold text-brand-600"
+                    }
+                  >
                     {tx.type}
                   </td>
-                  <td>{tx.productOrReason || tx.paymentMethod || '-'}</td>
+                  <td>{tx.productOrReason || tx.paymentMethod || "-"}</td>
                   <td>{money(tx.amount)}</td>
                   <td className="font-bold">{money(tx.runningBalance)}</td>
-                  <td>{tx.notes || '-'}</td>
+                  <td>{tx.notes || "-"}</td>
                 </tr>
               ))}
             </tbody>
@@ -100,23 +185,39 @@ export default function CustomerProfile() {
         </div>
       </section>
 
-      <Modal title={t('addCredit')} open={open} onClose={() => setOpen(false)}>
-        <form className="grid gap-3" onSubmit={(event) => { event.preventDefault(); addTx.mutate(); }}>
-          <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option value="credit">{t('addCredit')}</option>
-            <option value="payment">{t('receivePayment')}</option>
+      <Modal title={t("addCredit")} open={open} onClose={() => setOpen(false)}>
+        <form
+          className="grid gap-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addTx.mutate();
+          }}
+        >
+          <select
+            className="input"
+            value={form.type}
+            onChange={(e) => setForm({ ...form, type: e.target.value })}
+          >
+            <option value="credit">{t("addCredit")}</option>
+            <option value="payment">{t("receivePayment")}</option>
           </select>
           <input
             className="input"
             type="number"
             min="1"
-            placeholder={t('amount')}
+            placeholder={t("amount")}
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             required
           />
-          {form.type === 'payment' ? (
-            <select className="input" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
+          {form.type === "payment" ? (
+            <select
+              className="input"
+              value={form.paymentMethod}
+              onChange={(e) =>
+                setForm({ ...form, paymentMethod: e.target.value })
+              }
+            >
               <option value="cash">Cash</option>
               <option value="esewa">eSewa</option>
               <option value="khalti">Khalti</option>
@@ -128,11 +229,20 @@ export default function CustomerProfile() {
               className="input"
               placeholder="Product / Reason"
               value={form.productOrReason}
-              onChange={(e) => setForm({ ...form, productOrReason: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, productOrReason: e.target.value })
+              }
             />
           )}
-          <textarea className="input min-h-24" placeholder={t('notes')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <button className="btn btn-primary" disabled={addTx.isPending}>{t('save')}</button>
+          <textarea
+            className="input min-h-24"
+            placeholder={t("notes")}
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+          <button className="btn btn-primary" disabled={addTx.isPending}>
+            {t("save")}
+          </button>
         </form>
       </Modal>
     </div>
