@@ -18,6 +18,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import syncRoutes from './routes/syncRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import cron from 'node-cron';
 import { errorHandler, notFound } from './middleware/errorHandler.js';
 
 dotenv.config({ path: '../.env' });
